@@ -1,12 +1,7 @@
 import { OpenAI } from "openai";
 import { EventType, StreamEvent, TextDelta, TokenUsage } from "./response";
 
-interface kwargsProps {
-  model: string;
-  messages: OpenAI.Chat.ChatCompletionMessageParam[];
-  stream?: boolean;
-}
-const createLLMClient = () => {
+export const createLLMClient = () => {
   let client: OpenAI | null = null;
 
   function getClient(): OpenAI {
@@ -27,16 +22,31 @@ const createLLMClient = () => {
   }
 
   async function* chatCompletion(messages: any, stream: boolean = true) {
+    client = getClient();
     const kwargs = {
       model: "nvidia/nemotron-3-nano-30b-a3b:free",
       messages,
       stream,
     };
+
+    if (!client) {
+      return;
+    }
+    if (stream === true) {
+      await streamResponse(client, kwargs);
+    } else {
+      const event = await nonStreamResponse(client, {
+        model: "nvidia/nemotron-3-nano-30b-a3b:free",
+        messages,
+        stream,
+      });
+      yield event;
+    }
   }
 
-  async function _streamResponse(openaiClient: OpenAI, kwargs: object) {}
+  async function streamResponse(openaiClient: OpenAI, kwargs: object) {}
 
-  async function _nonStreamResponse(
+  async function nonStreamResponse(
     openaiClient: OpenAI,
     kwargs: {
       model: string;
@@ -70,4 +80,6 @@ const createLLMClient = () => {
       usage: usage,
     });
   }
+
+  return { chatCompletion, close };
 };
