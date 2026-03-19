@@ -1,4 +1,4 @@
-import { OpenAI } from "openai";
+import { APIConnectionError, APIError, OpenAI, RateLimitError } from "openai";
 import {
   EventType,
   StreamEvent,
@@ -9,6 +9,7 @@ import {
 
 export const createLLMClient = () => {
   let client: OpenAI | null = null;
+  let maxTries: number = 3;
 
   function getClient(): OpenAI {
     if (client === null) {
@@ -29,30 +30,55 @@ export const createLLMClient = () => {
 
   async function* chatCompletion(messages: any, stream: boolean = true) {
     client = getClient();
-    const kwargs = {
-      model: "nvidia/nemotron-3-nano-30b-a3b:free",
-      messages,
-      stream,
-    };
 
     if (!client) {
+      console.log("No OpenAIClient.");
       return;
     }
-    if (stream === true) {
-      for await (const event of streamResponse(client, {
-        model: "nvidia/nemotron-3-nano-30b-a3b:free",
-        messages,
-        stream,
-      })) {
-        yield event;
+    for (let attempt = 1; attempt <= maxTries + 1; attempt++) {
+      try {
+        if (stream === true) {
+          for await (const event of streamResponse(client, {
+            model: "nvidia/nemotron-3-nano-30b-a3b:free",
+            messages,
+            stream,
+          })) {
+            yield event;
+          }
+        } else {
+          const event = await nonStreamResponse(client, {
+            model: "nvidia/nemotron-3-nano-30b-a3b:free",
+            messages,
+            stream,
+          });
+          yield event;
+        }
+      } catch (e) {
+        if (e instanceof RateLimitError || e instanceof APIConnectionError) {
+          if (attempt < maxTries) {
+            const waitTime = 2 ** attempt * 1000;
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
+          } else {
+            const prefix =
+              e instanceof RateLimitError
+                ? "Rate limit exceeded"
+                : "Connection error";
+            yield StreamEvent({
+              type: EventType.ERROR,
+              error: `${prefix}: ${e.message}`,
+            });
+            return;
+          }
+        } else if (e instanceof APIError) {
+          yield StreamEvent({
+            type: EventType.ERROR,
+            error: `API error: ${e.message}`,
+          });
+          return;
+        } else {
+          throw e;
+        }
       }
-    } else {
-      const event = await nonStreamResponse(client, {
-        model: "nvidia/nemotron-3-nano-30b-a3b:free",
-        messages,
-        stream,
-      });
-      yield event;
     }
   }
 
