@@ -1,4 +1,3 @@
-// EventType enum
 export const EventType = Object.freeze({
   TEXT_DELTA: "text_delta",
   MESSAGE_COMPLETE: "message_complete",
@@ -7,7 +6,6 @@ export const EventType = Object.freeze({
 
 export type EventTypeValue = (typeof EventType)[keyof typeof EventType];
 
-// TextDelta factory
 export const TextDelta = (content: string) => ({
   content,
   toString() {
@@ -21,7 +19,6 @@ export interface TokenUsageParams {
   totalTokens?: number;
   cachedTokens?: number;
 }
-
 export interface TokenUsageResult {
   promptTokens: number;
   completionTokens: number;
@@ -29,7 +26,6 @@ export interface TokenUsageResult {
   cachedTokens: number;
   add(other: TokenUsageResult): TokenUsageResult;
 }
-
 export const TokenUsage = ({
   promptTokens = 0,
   completionTokens = 0,
@@ -50,7 +46,6 @@ export const TokenUsage = ({
   },
 });
 
-// StreamEvent factory
 export interface StreamEventParams {
   type: EventTypeValue;
   textDelta?: ReturnType<typeof TextDelta> | null;
@@ -58,7 +53,6 @@ export interface StreamEventParams {
   finishReason?: string | null;
   usage?: ReturnType<typeof TokenUsage> | null;
 }
-
 export const StreamEvent = ({
   type,
   textDelta = null,

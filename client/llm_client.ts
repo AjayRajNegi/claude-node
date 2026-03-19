@@ -1,5 +1,11 @@
 import { OpenAI } from "openai";
-import { EventType, StreamEvent, TextDelta, TokenUsage } from "./response";
+import {
+  EventType,
+  StreamEvent,
+  TextDelta,
+  TokenUsage,
+  type TokenUsageResult,
+} from "./response";
 
 export const createLLMClient = () => {
   let client: OpenAI | null = null;
@@ -33,7 +39,13 @@ export const createLLMClient = () => {
       return;
     }
     if (stream === true) {
-      await streamResponse(client, kwargs);
+      for await (const event of streamResponse(client, {
+        model: "nvidia/nemotron-3-nano-30b-a3b:free",
+        messages,
+        stream,
+      })) {
+        yield event;
+      }
     } else {
       const event = await nonStreamResponse(client, {
         model: "nvidia/nemotron-3-nano-30b-a3b:free",
@@ -44,7 +56,56 @@ export const createLLMClient = () => {
     }
   }
 
-  async function streamResponse(openaiClient: OpenAI, kwargs: object) {}
+  async function* streamResponse(
+    openaiClient: OpenAI,
+    kwargs: {
+      model: string;
+      messages: OpenAI.Chat.ChatCompletionMessageParam[];
+      stream?: true;
+    },
+  ) {
+    const response = await openaiClient.chat.completions.create({
+      ...kwargs,
+      stream: true,
+    });
+
+    let usage: TokenUsageResult | null = null;
+    let finishReason: string | null = null;
+
+    for await (const chunk of response) {
+      if ("usage" in chunk && chunk.usage) {
+        const tokenUsage = chunk.usage;
+        usage = TokenUsage({
+          promptTokens: tokenUsage.prompt_tokens,
+          completionTokens: tokenUsage.completion_tokens,
+          totalTokens: tokenUsage.total_tokens,
+          cachedTokens: tokenUsage.prompt_tokens_details?.cached_tokens ?? 0,
+        });
+      }
+
+      if (!chunk.choices) continue;
+
+      const choice = chunk.choices[0];
+      const delta = choice?.delta;
+
+      if (choice?.finish_reason) {
+        finishReason = choice.finish_reason;
+      }
+
+      if (delta?.content) {
+        yield StreamEvent({
+          type: EventType.TEXT_DELTA,
+          textDelta: TextDelta(delta.content),
+        });
+      }
+    }
+
+    yield StreamEvent({
+      type: EventType.MESSAGE_COMPLETE,
+      finishReason: finishReason,
+      usage: usage,
+    });
+  }
 
   async function nonStreamResponse(
     openaiClient: OpenAI,
