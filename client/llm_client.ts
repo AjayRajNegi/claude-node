@@ -1,6 +1,6 @@
 import { APIConnectionError, APIError, OpenAI, RateLimitError } from "openai";
 import {
-  EventType,
+  StreamEventType,
   StreamEvent,
   TextDelta,
   TokenUsage,
@@ -64,14 +64,14 @@ export const createLLMClient = () => {
                 ? "Rate limit exceeded"
                 : "Connection error";
             yield StreamEvent({
-              type: EventType.ERROR,
+              type: StreamEventType.ERROR,
               error: `${prefix}: ${e.message}`,
             });
             return;
           }
         } else if (e instanceof APIError) {
           yield StreamEvent({
-            type: EventType.ERROR,
+            type: StreamEventType.ERROR,
             error: `API error: ${e.message}`,
           });
           return;
@@ -120,14 +120,14 @@ export const createLLMClient = () => {
 
       if (delta?.content) {
         yield StreamEvent({
-          type: EventType.TEXT_DELTA,
+          type: StreamEventType.TEXT_DELTA,
           textDelta: TextDelta(delta.content),
         });
       }
     }
 
     yield StreamEvent({
-      type: EventType.MESSAGE_COMPLETE,
+      type: StreamEventType.MESSAGE_COMPLETE,
       finishReason: finishReason,
       usage: usage,
     });
@@ -161,7 +161,7 @@ export const createLLMClient = () => {
     }
 
     return StreamEvent({
-      type: EventType.MESSAGE_COMPLETE,
+      type: StreamEventType.MESSAGE_COMPLETE,
       textDelta: textDelta,
       finishReason: choice?.finish_reason,
       usage: usage,

@@ -1,10 +1,11 @@
-export const EventType = Object.freeze({
+export const StreamEventType = Object.freeze({
   TEXT_DELTA: "text_delta",
   MESSAGE_COMPLETE: "message_complete",
   ERROR: "error",
 } as const);
 
-export type EventTypeValue = (typeof EventType)[keyof typeof EventType];
+export type StreamEventTypeValue =
+  (typeof StreamEventType)[keyof typeof StreamEventType];
 
 export const TextDelta = (content: string) => ({
   content,
@@ -47,7 +48,7 @@ export const TokenUsage = ({
 });
 
 export interface StreamEventParams {
-  type: EventTypeValue;
+  type: StreamEventTypeValue;
   textDelta?: ReturnType<typeof TextDelta> | null;
   error?: string | null;
   finishReason?: string | null;
