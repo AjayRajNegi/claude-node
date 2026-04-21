@@ -60,4 +60,6 @@ export const Agent = () => {
   async function aexit() {
     await client.close();
   }
+
+  return { run };
 };
